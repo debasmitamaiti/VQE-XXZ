@@ -126,7 +126,232 @@ ansätze, the Hamiltonian Variational Ansatz, and the error-mitigation technique
 all published work — see the references in each notebook. It is intended as a rigorous,
 reproducible study and teaching resource, not as a claim of new research results.
 
-## Author
+---
+"Ansatz Expressibility versus Noise Resilience on IBM Quantum Hardware"
 
-Debasmita Maiti — PhD, theoretical physics (quantum many-body systems, tensor networks).
+---
+
+# Summary
+
+Two variational ansaetze for the ground state of the four-site XXZ Heisenberg chain were
+optimized noiselessly, frozen, and executed on **IBM `ibm_fez`** (Heron r2, 156 qubits).
+
+- **RBS / Givens** -- number-conserving real rotations. Mathematically capped at the
+  Hartree-Fock energy, $-1.581819$.
+- **Improved (XY + ZZ)** -- adds interaction gates and a reflection-symmetric reference state.
+  Reaches the exact ground state, $-1.616025$, noiselessly.
+
+**Result: on hardware the ordering reverses.** The mathematically inferior ansatz wins, at
+$8.5\sigma$, and the reversal survives every mitigation strategy tested.
+
+# Key results
+
+## 1. The ordering reversal, and how mitigation affects it
+
+Ordering gap $\Delta = E(\text{improved}) - E(\text{RBS})$. Negative means the correct
+ordering; the noiseless ideal is $-0.0342$.
+
+| mitigation arm | gap | significance |
+|---|---|---|
+| raw (no mitigation) | **+0.1104 $\pm$ 0.0130** | 8.5$\sigma$ |
+| TREX (readout twirling) | **+0.1333 $\pm$ 0.0148** | 9.0$\sigma$ |
+| symmetry post-selection | **+0.0592 $\pm$ 0.0149** | 4.0$\sigma$ |
+| M3 + symmetry | **+0.0539 $\pm$ 0.0145** | 3.7$\sigma$ |
+| *noiseless ideal* | *-0.0342* | -- |
+
+Mitigation halves the gap but never reverses the sign. **TREX makes the gap worse**, because
+readout mitigation helps shallow circuits disproportionately (62% error reduction for the
+shallowest circuit against 28% for the deepest) -- the cheaper circuit benefits more, widening
+the very gap it was meant to close.
+
+## 2. Mitigation ladder
+
+Error measured against each circuit's *own* noiseless energy, so ansatz error and device error
+are never conflated.
+
+| circuit | 2q gates | ISA depth | raw | TREX | post-sel | M3 | **M3+sym** |
+|---|---|---|---|---|---|---|---|
+| imp_d1 | 14 | 37 | 0.260 | 0.098 | 0.066 | 0.145 | **0.068** |
+| rbs_d2 | 12 | 45 | 0.253 | 0.098 | 0.012 | 0.105 | **0.005** |
+| imp_d2 | 25 | 75 | 0.398 | 0.266 | 0.105 | 0.280 | **0.093** |
+| imp_d3 | 34 | 105 | 0.504 | 0.365 | 0.234 | 0.403 | **0.220** |
+
+**The RBS circuit recovers to within 0.005 of its noiseless value** -- a 53-fold error
+reduction, essentially complete mitigation on a real device.
+
+Note that free symmetry post-selection *outperforms* calibrated M3 readout mitigation
+(0.012 against 0.105 for rbs_d2). The ansatz cannot leave the $S^z_{\rm tot}=0$ sector, so any
+measured bitstring with the wrong magnetization is provably an error. Observed leakage was
+16-21%, scaling with gate count.
+
+## 3. Controlled-depth experiment
+
+The cleanest measurement in the study. Two circuits prepare the **identical target state**
+(fidelity $1.000000000000$, phase-aligned distance $2.8\times10^{-7}$), differing only in how
+they are compiled:
+
+| | 2q gates | ISA depth | hardware error |
+|---|---|---|---|
+| imp_d2 | 25 | 75 | 0.398 |
+| imp_d3 | 34 | 105 | 0.504 |
+
+Because expressibility is held exactly fixed, the difference is pure implementation cost:
+
+$$\epsilon(D_3)-\epsilon(D_2) = +0.1058 \pm 0.0136 \ \text{for 9 extra two-qubit gates}$$
+$$\Rightarrow\ 0.0118 \pm 0.0015 \ \text{per two-qubit gate}$$
+
+This is **5.4 times the calibrated `cz` error** on the same qubit path (mean $0.00216$), so
+gate infidelity alone does not explain the penalty. The extra 30 layers of ISA depth also cost
+decoherence: the deeper circuit runs $2.76\,\mu$s, roughly 5% of the shortest $T_2$ on the
+path ($52\,\mu$s on Q133).
+
+## 4. What it would take for the improved ansatz to win
+
+RBS is now mitigated **to within 0.005 of its mathematical ceiling** and cannot improve
+further -- the ceiling is a property of the ansatz, not of the hardware. That makes the
+requirement precise:
+
+> The improved ansatz must reduce its error below **0.039**. It currently achieves **0.093**.
+> A further **2.4-fold error reduction** is required.
+
+# On zero-noise extrapolation
+
+The ZNE arm was planned but not executed. It deserves explicit comment for three reasons.
+
+**It is the only remaining technique that targets the dominant error.** TREX and M3 both
+correct *readout* error. Symmetry post-selection catches only errors that change the
+magnetization -- so $X$- and $Y$-type errors are detectable, but $Z$-type (phase) errors pass
+through the filter untouched, because they leave the up-spin count intact. After all three
+arms, what remains is precisely the coherent and phase error that ZNE is designed to address.
+
+**The required improvement is within its plausible range, but not comfortably.** ZNE typically
+delivers a two- to fivefold bias reduction. The threshold here is 2.4-fold. The outcome is
+therefore genuinely uncertain, which is what makes the experiment worth running rather than
+merely worth predicting.
+
+**There are two specific reasons for caution.** First, ZNE reduces bias at the cost of
+*variance*: it extrapolates from a difference of noisy quantities, so the error bars grow.
+With the current gap at $3.7\sigma$, a technique that shrinks the gap while inflating the
+uncertainty could leave the comparison inconclusive rather than resolved -- and an
+inconclusive result would still be worth reporting honestly. Second, ZNE handles *stochastic*
+noise far better than *coherent* error: unitary folding $U U^\dagger U$ amplifies random
+errors faithfully, but a systematic over-rotation partially cancels under the inverse gate, so
+the amplified points need not lie on the smooth curve the extrapolation assumes. If a
+significant part of the residual error on `ibm_fez` is coherent, ZNE will underperform its
+usual range.
+
+**Estimated cost:** approximately 189 s of quantum runtime (resilience level 2, noise factors
+$[1,3,5]$, four circuits), against roughly 61 s used by the entire study so far.
+
+**Recommended framing of the result, whichever way it goes.** If ZNE closes the gap, the
+conclusion becomes *"the ordering reversal is a mitigable artefact of readout and gate noise
+at this scale."* If it does not, the conclusion is stronger and more interesting: *"the
+reversal survives the full mitigation stack, so on this hardware generation circuit cost
+genuinely dominates expressibility."* Both are publishable-quality statements about the
+device; neither requires the experiment to succeed in a particular direction.
+
+# Device and configuration
+
+| | |
+|---|---|
+| backend | `ibm_fez`, Heron r2, 156 qubits, version 1.3.37 |
+| qubit path | [133, 132, 131, 130] |
+| native basis | `cz`, `rz`, `sx`, `x` |
+| shots | 4096 per circuit |
+| transpilation | optimization level 3, `seed_transpiler=1234` |
+| $T_1$ along path | 65-136 $\mu$s |
+| $T_2$ along path | 52-183 $\mu$s |
+| readout error | 0.0044-0.0642 (Q131 is the outlier at 6.4%) |
+| `cz` error | 0.00124-0.00288 |
+
+All circuits ran in a single batch so that every measurement shares one calibration.
+
+# Method
+
+1. **Optimize noiselessly** with a statevector simulator and SciPy COBYLA, using multiple
+   seeded restarts. For the improved ansatz both reference-state parities are tried and the
+   lower energy kept -- safe by the variational principle.
+2. **Freeze the parameters.** No optimization runs on hardware; each circuit is submitted once.
+3. **Transpile** to the device basis, recording ISA depth, two-qubit gate count and estimated
+   duration.
+4. **Execute** across mitigation arms (raw, TREX) via `EstimatorV2`, plus a `SamplerV2` run in
+   three number-conserving measurement settings for post-selection and M3.
+5. **Analyse** each circuit against its own noiseless energy, separating ansatz error from
+   device error.
+
+Every gate is verified against its analytic matrix before use.
+
+# Files
+
+| file | contents |
+|---|---|
+| `XXZ_RBS_vs_Improved_IBM_Hardware_IBM_AUDITED.ipynb` | main hardware notebook |
+| `estimator_results.json` | raw and TREX energies, per-term expectations, job metadata |
+| `sampler_postselection.csv` | post-selection, M3 and M3+symmetry estimators |
+| `transpilation_resources.csv` | ISA depth, two-qubit counts, estimated durations |
+| `backend_calibration.json` | $T_1$, $T_2$, readout and `cz` errors on the used path |
+| `ordering.csv` | ordering gaps with significance |
+| `ideal_results.csv` | noiseless energies, fidelities, variances |
+| `conclusions.json` | machine-readable summary |
+| `figures/` | 11 figures |
+
+# Reproducing
+
+```
+pip install "qiskit==2.5.2" "qiskit-ibm-runtime==0.49.0" numpy scipy matplotlib pandas
+export IBM_QUANTUM_TOKEN="your_token"
+```
+
+A free IBM Quantum Open Plan account is sufficient -- no payment method is required. The
+complete study used approximately 61 seconds of quantum runtime. Sections 1-5 run entirely
+offline; Section 6 requires credentials.
+
+# Interpretation and limits
+
+**What this establishes.** On current superconducting hardware, at this problem size, circuit
+cost dominates expressibility. An ansatz that is *exact* in simulation loses to one that is
+mathematically capped, because it requires roughly twice the two-qubit gates. Error mitigation
+narrows the gap substantially but does not close it.
+
+**What it does not establish.** This is one device, one problem size ($L=4$), one anisotropy
+($\Delta=1$), and a single session. The conclusion is a statement about *this hardware
+regime*, not about the ansaetze in general. On a sufficiently low-noise device the ordering
+should revert to the ideal one; locating that crossover would require devices with materially
+better two-qubit fidelity.
+
+**Open items.** The ZNE arm has not been run (see above). Symmetry post-selection is applied
+only to $Z$-basis measurement settings, because magnetization is not directly readable in
+rotated bases -- extending it would require ancilla-based parity checks at additional circuit
+cost.
+
+# Scope
+
+This project applies established methods -- VQE, symmetry-preserving ansaetze, the Hamiltonian
+Variational Ansatz, TREX and M3 readout mitigation, symmetry verification -- to a
+well-understood model. It is a reproducible hardware study and teaching resource, not a claim
+of new methodology.
+
+# References
+
+1. A. Peruzzo *et al.*, *A variational eigenvalue solver on a photonic quantum processor*,
+   Nature Communications **5**, 4213 (2014).
+2. D. Wecker, M. B. Hastings, M. Troyer, *Progress towards practical quantum variational
+   algorithms*, Physical Review A **92**, 042303 (2015).
+3. B. T. Gard *et al.*, *Efficient symmetry-preserving state preparation circuits for the
+   variational quantum eigensolver algorithm*, npj Quantum Information **6**, 10 (2020).
+4. G. S. Barron *et al.*, *Preserving symmetries for variational quantum eigensolvers in the
+   presence of noise*, Physical Review Applied **16**, 034003 (2021).
+5. K. Temme, S. Bravyi, J. M. Gambetta, *Error mitigation for short-depth quantum circuits*,
+   Physical Review Letters **119**, 180509 (2017).
+6. A. Kandala *et al.*, *Error mitigation extends the computational reach of a noisy quantum
+   processor*, Nature **567**, 491 (2019).
+7. E. van den Berg, Z. K. Minev, K. Temme, *Model-free readout-error mitigation for quantum
+   expectation values*, Physical Review A **105**, 032620 (2022).
+8. H. Bethe, *Zur Theorie der Metalle*, Zeitschrift fuer Physik **71**, 205 (1931).
+
+**Author:** Debasmita Maiti -- PhD, theoretical physics (quantum many-body systems, tensor
+networks).
+
+
+
 
