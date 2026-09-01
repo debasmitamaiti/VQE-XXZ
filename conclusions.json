@@ -1,0 +1,10 @@
+{
+ "1. Raw ordering reversal reproduced?": "YES; gap +0.110352 +/- 0.013005, z=+8.49.",
+ "2. TREX error reduction?": "imp_d1: +62.5%, rbs_d2: +61.2%, imp_d2: +33.2%, imp_d3: +27.6%",
+ "3. ZNE error reduction?": "PENDING: ZNE arm not loaded.",
+ "4. Symmetry post-selection restored ordering?": "NO; post-selected gap +0.059235 +/- 0.014947.",
+ "5. Observed symmetry leakage?": "imp_d1: 16.0% discarded, rbs_d2: 17.3% discarded, imp_d2: 20.9% discarded, imp_d3: 21.0% discarded",
+ "6. D2/D3 controlled-depth status?": "VALID CONTROL: target fidelity 1.000000000000; D3 adds 30 ISA-depth and 9 two-qubit gates on ibm_fez. Included=True.",
+ "7. Extra raw error from deeper D3 implementation?": "epsilon(D3)-epsilon(D2)=+0.105835 +/- 0.013572.",
+ "8. Next scale?": "After the L=4 mitigation and same-target depth control, move to L=6 for a true expressibility-versus-depth study where optimized depths remain ideally distinct."
+}

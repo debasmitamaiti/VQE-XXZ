@@ -1,0 +1,7 @@
+numpy
+scipy
+matplotlib
+pandas
+qiskit
+qiskit-ibm-runtime
+pylatexenc

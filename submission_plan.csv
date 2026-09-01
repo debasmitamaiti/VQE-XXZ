@@ -1,0 +1,7 @@
+workload,description,n_pubs,observables_per_pub,estimated_QWC_groups_per_pub,shots,usage_multiplier,approx_usage_s,enabled,already_saved,new_submission
+A_raw,"resilience 0; DD, gate/measurement twirling and mitigation off",4,10,12,4096,1.0,51.82,False,True,False
+B_trex,resilience 1 (current IBM TREX bundle),4,10,12,4096,1.25,64.27,False,True,False
+C_zne,"resilience 2 (TREX + gate twirling + ZNE [1,3,5])",4,10,12,4096,3.75,188.81,False,False,False
+D_suppression,resilience 0 + DD + gate twirling; no measurement mitigation,4,10,12,4096,1.0,51.82,False,False,False
+Sampler,3 number-conserving measurement settings per circuit,12,1,1,4096,1.0,14.45,False,True,False
+M3_calibration,readout calibration over final measured qubits,2,1,1,4096,1.0,7.76,False,True,False
